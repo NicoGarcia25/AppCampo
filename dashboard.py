@@ -76,7 +76,7 @@ def cargar_datos() -> tuple:
         "backtest":           "1rAEy3ma9gj6Rr1xu0wBNee0YjfpnaftCX",
     }
 
-    pythondef leer_csv_drive(file_id: str) -> pd.DataFrame:
+    def leer_csv_drive(file_id: str) -> pd.DataFrame:
     import gdown
     import tempfile
     import os
