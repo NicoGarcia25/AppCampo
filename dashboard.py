@@ -76,13 +76,21 @@ def cargar_datos() -> tuple:
         "backtest":           "1rAEy3ma9gj6Rr1xu0wBNee0YjfpnaftCX",
     }
 
-    def leer_csv_drive(file_id: str) -> pd.DataFrame:
-        url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        try:
-            return pd.read_csv(url)
-        except Exception as e:
-            st.error(f"Error leyendo desde Drive: {e}")
-            return pd.DataFrame()
+    pythondef leer_csv_drive(file_id: str) -> pd.DataFrame:
+    import gdown
+    import tempfile
+    import os
+    try:
+        url = f"https://drive.google.com/uc?id={file_id}"
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+            ruta_tmp = tmp.name
+        gdown.download(url, ruta_tmp, quiet=True)
+        df = pd.read_csv(ruta_tmp, sep=None, engine="python")
+        os.unlink(ruta_tmp)
+        return df
+    except Exception as e:
+        st.error(f"Error descargando desde Drive: {e}")
+        return pd.DataFrame()
 
     # Intentar local primero, Drive como fallback
     if Path("predicciones.csv").exists():
