@@ -72,7 +72,7 @@ def cargar_datos() -> tuple:
     """Carga datos desde Google Drive o local según disponibilidad."""
     
     DRIVE_IDS = {
-        "predicciones":       "1RwpPHxx1XjAdA4F9-LXSlTUjmxZ2jQog",
+        "predicciones":       ""1hxD9k6PiawMpsB1AC0LuwQByPt6D7VG-"",
         "backtest":           "1KjxmMX8gCqCzfuvQRauBeMjwaKkGhDRK",
     }
 
