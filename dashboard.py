@@ -73,7 +73,7 @@ def cargar_datos() -> tuple:
     
     DRIVE_IDS = {
         "predicciones":       "1hxD9k6PiawMpsB1AC0LuwQByPt6D7VG-",
-        "backtest":           "1KjxmMX8gCqCzfuvQRauBeMjwaKkGhDRK",
+        "backtest":           "1rAEy3ma9gj6Rr1xu0wBNee0YjfpnaftCX",
     }
 
     def leer_csv_drive(file_id: str) -> pd.DataFrame:
