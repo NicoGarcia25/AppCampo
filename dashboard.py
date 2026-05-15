@@ -72,25 +72,25 @@ def cargar_datos() -> tuple:
     """Carga datos desde Google Drive o local según disponibilidad."""
     
     DRIVE_IDS = {
-        "predicciones":       "1hxD9k6PiawMpsB1AC0LuwQByPt6D7VG-",
-        "backtest":           "1rAEy3ma9gj6Rr1xu0wBNee0YjfpnaftCX",
+        "predicciones": "1hxD9k6PiawMpsB1AC0LuwQByPt6D7VG-",
+        "backtest":     "1rAEy3ma9gj6Rr1xu0wBNee0YjfpnaftCX",
     }
 
- def leer_csv_drive(file_id: str) -> pd.DataFrame:
-    import gdown
-    import tempfile
-    import os
-    try:
-        url = f"https://drive.google.com/uc?id={file_id}"
-        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
-            ruta_tmp = tmp.name
-        gdown.download(url, ruta_tmp, quiet=True)
-        df = pd.read_csv(ruta_tmp, sep=None, engine="python")
-        os.unlink(ruta_tmp)
-        return df
-    except Exception as e:
-        st.error(f"Error descargando desde Drive: {e}")
-        return pd.DataFrame()
+    def leer_csv_drive(file_id: str) -> pd.DataFrame:
+        import gdown
+        import tempfile
+        import os
+        try:
+            url = f"https://drive.google.com/uc?id={file_id}"
+            with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+                ruta_tmp = tmp.name
+            gdown.download(url, ruta_tmp, quiet=True)
+            df = pd.read_csv(ruta_tmp, sep=None, engine="python")
+            os.unlink(ruta_tmp)
+            return df
+        except Exception as e:
+            st.error(f"Error descargando desde Drive: {e}")
+            return pd.DataFrame()
 
     # Intentar local primero, Drive como fallback
     if Path("predicciones.csv").exists():
