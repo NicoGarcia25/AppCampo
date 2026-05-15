@@ -67,19 +67,38 @@ st.markdown("""
 # CARGA DE DATOS
 # ─────────────────────────────────────────────────────────────────────────────
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=300)
 def cargar_datos() -> tuple:
-    """Carga predicciones.csv y backtest_resultados.csv con cache de 1 hora."""
-    if not Path("predicciones.csv").exists():
+    """Carga datos desde Google Drive o local según disponibilidad."""
+    
+    DRIVE_IDS = {
+        "predicciones":       "1RwpPHxx1XjAdA4F9-LXSlTUjmxZ2jQog",
+        "backtest":           "1KjxmMX8gCqCzfuvQRauBeMjwaKkGhDRK",
+    }
+
+    def leer_csv_drive(file_id: str) -> pd.DataFrame:
+        url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        try:
+            return pd.read_csv(url)
+        except Exception as e:
+            st.error(f"Error leyendo desde Drive: {e}")
+            return pd.DataFrame()
+
+    # Intentar local primero, Drive como fallback
+    if Path("predicciones.csv").exists():
+        df = pd.read_csv("predicciones.csv", parse_dates=["fecha"])
+        df_bt = pd.read_csv("backtest_resultados.csv") \
+                if Path("backtest_resultados.csv").exists() else None
+    else:
+        st.info("Cargando datos desde la nube...")
+        df = leer_csv_drive(DRIVE_IDS["predicciones"])
+        df["fecha"] = pd.to_datetime(df["fecha"])
+        df_bt = leer_csv_drive(DRIVE_IDS["backtest"])
+
+    if df.empty:
         return None, None
 
-    df = pd.read_csv("predicciones.csv", parse_dates=["fecha"])
     df = df.sort_values("fecha").reset_index(drop=True)
-
-    df_bt = None
-    if Path("backtest_resultados.csv").exists():
-        df_bt = pd.read_csv("backtest_resultados.csv")
-
     return df, df_bt
 
 
