@@ -73,20 +73,24 @@ def cargar_datos() -> tuple:
     
     DRIVE_IDS = {
         "predicciones": "1hxD9k6PiawMpsB1AC0LuwQByPt6D7VG-",
-        "backtest":     "1rAEy3ma9gj6Rr1xu0wBNee0YjfpnaftCX",
+        "backtest":     "1rAEy3ma9gj6Rr1xu0wBNE0YjfpnaftCX",
     }
 
     def leer_csv_drive(file_id: str) -> pd.DataFrame:
-        import gdown
-        import tempfile
-        import os
+        import requests as req
         try:
-            url = f"https://drive.google.com/uc?id={file_id}"
-            with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
-                ruta_tmp = tmp.name
-            gdown.download(url, ruta_tmp, quiet=True)
-            df = pd.read_csv(ruta_tmp, sep=None, engine="python")
-            os.unlink(ruta_tmp)
+            url = f"https://drive.google.com/uc?export=download&id={file_id}&confirm=t"
+            session = req.Session()
+            response = session.get(url, stream=True)
+            # Manejar confirmación de descarga de archivos grandes
+            for key, value in response.cookies.items():
+                if key.startswith("download_warning"):
+                    url = f"{url}&confirm={value}"
+                    response = session.get(url, stream=True)
+                    break
+            content = b"".join(response.iter_content(chunk_size=8192))
+            import io
+            df = pd.read_csv(io.BytesIO(content), sep=None, engine="python")
             return df
         except Exception as e:
             st.error(f"Error descargando desde Drive: {e}")
