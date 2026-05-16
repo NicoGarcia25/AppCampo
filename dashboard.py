@@ -576,7 +576,7 @@ with st.expander("Ver historial de señales recientes"):
 # ─────────────────────────────────────────────────────────────────────────────
 # SECCIÓN: DÓLAR FUTURO ROFEX + RETENCIÓN DE COSECHA
 # ─────────────────────────────────────────────────────────────────────────────
-
+"""
 st.markdown("---")
 st.markdown("### 🇦🇷 Contexto de mercado argentino")
 st.caption("Variables locales que impactan el precio en pesos independientemente del CBOT")
@@ -798,7 +798,7 @@ else:
                 </div>
                 """,
                 unsafe_allow_html=True
-            )
+            )"""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FOOTER
