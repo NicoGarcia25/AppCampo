@@ -789,17 +789,17 @@ else:
                 "rojo":     "#dc3545",
             }
             st.markdown(
-                f"""
-                <div style="background:{bg_colors[color_comb]};
+                f
+                 <div style="background:{bg_colors[color_comb]};
                      border-left:4px solid {border_colors[color_comb]};
                      padding:1rem 1.25rem; border-radius:6px; margin-top:0.5rem;">
                   <strong style="font-size:15px;">{senal_comb}</strong><br>
                   <span style="font-size:13px;">{texto_comb}</span>
                 </div>
-                """,
+                ,
                 unsafe_allow_html=True
-            )"""
-
+            )   """
+                                    
 # ─────────────────────────────────────────────────────────────────────────────
 # FOOTER
 # ─────────────────────────────────────────────────────────────────────────────
