@@ -17,6 +17,172 @@ import plotly.express as px
 from pathlib import Path
 from datetime import datetime, timedelta
 
+def evaluar_estrategias_en_horizonte(
+    df: pd.DataFrame,
+    cultivo: str,
+    horizonte_dias: int,
+    umbral_percentil: int = 65,
+    pct_suba: float = 5.0,
+) -> dict:
+    """
+    Dado un horizonte de días, simula qué precio hubiera obtenido
+    cada estrategia operando SOLO dentro de ventanas de ese tamaño
+    a lo largo del histórico.
+
+    Parámetros
+    ----------
+    df               : DataFrame con precio y percentil del cultivo
+    cultivo          : "soja", "maiz" o "trigo"
+    horizonte_dias   : días disponibles para vender (slider del usuario)
+    umbral_percentil : umbral de señal VENDER para PrecioJusto
+    pct_suba         : porcentaje de suba para estrategia +X%
+
+    Retorna
+    -------
+    dict con resultados de cada estrategia y la recomendación final
+    """
+    col_precio = f"precio_{cultivo}"
+    col_perc   = f"percentil_{cultivo}"
+
+    df = df.dropna(subset=[col_precio]).copy()
+    df = df[df["fecha"] <= pd.Timestamp.today()].copy()
+
+    if len(df) < horizonte_dias:
+        return {}
+
+    precios    = df[col_precio].values
+    fechas     = df["fecha"].values
+    percentiles = df[col_perc].values if col_perc in df.columns else np.full(len(df), np.nan)
+
+    resultados_pj    = []
+    resultados_suba  = []
+    resultados_cosecha = []
+    resultados_forzado = []  # vender al final si no hubo señal
+
+    # Deslizar ventana del tamaño del horizonte a lo largo del histórico
+    paso = max(1, horizonte_dias // 4)  # cada cuarto de horizonte avanzamos
+
+    for inicio in range(0, len(df) - horizonte_dias, paso):
+        fin = inicio + horizonte_dias
+        p_ventana    = precios[inicio:fin]
+        f_ventana    = fechas[inicio:fin]
+        perc_ventana = percentiles[inicio:fin]
+
+        # ── PrecioJusto: primera señal VENDER en la ventana ──────────────────
+        precio_pj = None
+        for j, perc in enumerate(perc_ventana):
+            if not np.isnan(perc) and perc >= umbral_percentil:
+                precio_pj = p_ventana[j]
+                break
+        # Si no hay señal, vender al final (obligado)
+        if precio_pj is None:
+            precio_pj = p_ventana[-1]
+            resultados_forzado.append(precio_pj)
+        resultados_pj.append(precio_pj)
+
+        # ── Estrategia +X% desde mínimo ──────────────────────────────────────
+        precio_suba = None
+        min_local   = p_ventana[0]
+        for j in range(1, len(p_ventana)):
+            if p_ventana[j] < min_local:
+                min_local = p_ventana[j]
+            elif (p_ventana[j] - min_local) / min_local * 100 >= pct_suba:
+                precio_suba = p_ventana[j]
+                break
+        if precio_suba is None:
+            precio_suba = p_ventana[-1]
+        resultados_suba.append(precio_suba)
+
+        # ── Venta forzada al final de la ventana ─────────────────────────────
+        resultados_cosecha.append(p_ventana[-1])
+
+    if not resultados_pj:
+        return {}
+
+    precio_pj_promedio   = np.mean(resultados_pj)
+    precio_suba_promedio = np.mean(resultados_suba)
+    precio_forzado_prom  = np.mean(resultados_cosecha)
+    pct_forzadas_pj      = len(resultados_forzado) / len(resultados_pj) * 100
+
+    # ── Determinar ganador ────────────────────────────────────────────────────
+    if precio_pj_promedio >= precio_suba_promedio:
+        ganador          = "PrecioJusto"
+        ventaja          = precio_pj_promedio - precio_suba_promedio
+        ventaja_pct      = ventaja / precio_suba_promedio * 100
+    else:
+        ganador          = f"Suba +{pct_suba:.0f}%"
+        ventaja          = precio_suba_promedio - precio_pj_promedio
+        ventaja_pct      = ventaja / precio_pj_promedio * 100
+
+    # ── Generar explicación contextual ───────────────────────────────────────
+    if horizonte_dias <= 15:
+        contexto = "horizonte muy corto"
+        explicacion = (
+            f"Con solo {horizonte_dias} días disponibles, "
+            f"hay poco margen para esperar señales. "
+            f"{'PrecioJusto identifica si el precio actual ya es bueno históricamente.' if ganador == 'PrecioJusto' else f'La estrategia +{pct_suba:.0f}% puede capturar un rebote rápido si el mercado está activo.'}"
+        )
+    elif horizonte_dias <= 45:
+        contexto = "horizonte corto"
+        explicacion = (
+            f"En {horizonte_dias} días "
+            f"{'PrecioJusto suele encontrar al menos una ventana favorable.' if ganador == 'PrecioJusto' else f'la estrategia +{pct_suba:.0f}% históricamente captura mejor los rebotes en esta ventana.'} "
+            f"{'El ' + str(round(pct_forzadas_pj)) + '% de las veces no hubo señal y se vendió al vencimiento.' if pct_forzadas_pj > 20 else ''}"
+        )
+    elif horizonte_dias <= 90:
+        contexto = "horizonte medio"
+        explicacion = (
+            f"Con {horizonte_dias} días disponibles hay buen margen para operar. "
+            f"{'PrecioJusto genera múltiples señales en este horizonte, permitiendo vender en partes.' if ganador == 'PrecioJusto' else f'La estrategia +{pct_suba:.0f}% captura bien las oscilaciones en este período.'}"
+        )
+    else:
+        contexto = "horizonte largo"
+        explicacion = (
+            f"Con más de {horizonte_dias} días, "
+            f"{'PrecioJusto tiene ventaja porque puede identificar el pico del ciclo estacional.' if ganador == 'PrecioJusto' else f'la estrategia +{pct_suba:.0f}% puede acumular varias señales de suba.'} "
+            f"Considerar vender en partes para diversificar el riesgo de precio."
+        )
+
+    return {
+        "horizonte_dias":        horizonte_dias,
+        "contexto":              contexto,
+        "precio_pj":             round(precio_pj_promedio, 2),
+        "precio_suba":           round(precio_suba_promedio, 2),
+        "precio_forzado":        round(precio_forzado_prom, 2),
+        "ganador":               ganador,
+        "ventaja_usd":           round(ventaja, 2),
+        "ventaja_pct":           round(ventaja_pct, 2),
+        "pct_sin_senal_pj":      round(pct_forzadas_pj, 1),
+        "n_simulaciones":        len(resultados_pj),
+        "explicacion":           explicacion,
+    }
+
+
+def generar_curva_horizontes(
+    df: pd.DataFrame,
+    cultivo: str,
+    umbral_percentil: int = 65,
+) -> pd.DataFrame:
+    """
+    Genera la curva completa de performance de cada estrategia
+    para todos los horizontes de 10 a 180 días.
+    Útil para el gráfico del dashboard.
+    """
+    horizontes = list(range(10, 181, 10))
+    registros = []
+
+    for h in horizontes:
+        res = evaluar_estrategias_en_horizonte(df, cultivo, h, umbral_percentil)
+        if res:
+            registros.append({
+                "horizonte":   h,
+                "PrecioJusto": res["precio_pj"],
+                f"Suba +5%":   res["precio_suba"],
+                "ganador":     res["ganador"],
+            })
+
+    return pd.DataFrame(registros)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURACIÓN DE PÁGINA
 # ─────────────────────────────────────────────────────────────────────────────
@@ -72,28 +238,16 @@ def cargar_datos() -> tuple:
     """Carga datos desde Google Drive o local según disponibilidad."""
     
     DRIVE_IDS = {
-        "predicciones": "1hxD9k6PiawMpsB1AC0LuwQByPt6D7VG-",
-        "backtest":     "1rAEy3ma9gj6Rr1xu0wBNE0YjfpnaftCX",
+        "predicciones":       "1RwpPHxx1XjAdA4F9-LXSlTUjmxZ2jQog",
+        "backtest":           "1KjxmMX8gCqCzfuvQRauBeMjwaKkGhDRK",
     }
 
     def leer_csv_drive(file_id: str) -> pd.DataFrame:
-        import requests as req
+        url = f"https://drive.google.com/uc?export=download&id={file_id}"
         try:
-            url = f"https://drive.google.com/uc?export=download&id={file_id}&confirm=t"
-            session = req.Session()
-            response = session.get(url, stream=True)
-            # Manejar confirmación de descarga de archivos grandes
-            for key, value in response.cookies.items():
-                if key.startswith("download_warning"):
-                    url = f"{url}&confirm={value}"
-                    response = session.get(url, stream=True)
-                    break
-            content = b"".join(response.iter_content(chunk_size=8192))
-            import io
-            df = pd.read_csv(io.BytesIO(content), sep=None, engine="python")
-            return df
+            return pd.read_csv(url)
         except Exception as e:
-            st.error(f"Error descargando desde Drive: {e}")
+            st.error(f"Error leyendo desde Drive: {e}")
             return pd.DataFrame()
 
     # Intentar local primero, Drive como fallback
@@ -573,10 +727,401 @@ with st.expander("Ver historial de señales recientes"):
     )
     st.dataframe(styled_hist, use_container_width=True, hide_index=True, height=300)
 
-                                    
+# ─────────────────────────────────────────────────────────────────────────────
+# SECCIÓN: DÓLAR FUTURO ROFEX + RETENCIÓN DE COSECHA
+# ─────────────────────────────────────────────────────────────────────────────
+
+st.markdown("---")
+st.markdown("### 🇦🇷 Contexto de mercado argentino")
+st.caption("Variables locales que impactan el precio en pesos independientemente del CBOT")
+
+# Verificar si el dataset tiene las columnas nuevas
+tiene_rofex    = "expectativa_devaluacion" in df.columns
+tiene_retencion = "indice_retencion" in df.columns
+
+if not tiene_rofex and not tiene_retencion:
+    st.info(
+        "💡 Para ver estas métricas, correr primero: `python fuentes_arg.py`  \n"
+        "Agrega dólar futuro ROFEX e índice de retención de cosecha al dataset."
+    )
+else:
+    _df_arg = df.dropna(
+        subset=[c for c in ["expectativa_devaluacion", "indice_retencion"] if c in df.columns]
+    )
+    ultimo_arg = _df_arg.iloc[-1] if not _df_arg.empty else None
+
+    col_r1, col_r2, col_r3, col_r4 = st.columns(4)
+    # ── Métricas de dólar futuro ──────────────────────────────────────────────
+    if tiene_rofex and ultimo_arg is not None:
+        with col_r1:
+            dev_30 = ultimo_arg.get("spread_devaluacion_30d", None)
+            st.metric(
+                "Devaluación esperada 30d",
+                f"{dev_30:.1f}%" if dev_30 is not None else "N/A",
+                help="Spread entre dólar futuro ROFEX a 30 días y dólar spot. "
+                     "Indica cuánto espera el mercado que se devalúe el peso."
+            )
+        with col_r2:
+            dev_90 = ultimo_arg.get("spread_devaluacion_90d", None)
+            st.metric(
+                "Devaluación esperada 90d",
+                f"{dev_90:.1f}%" if dev_90 is not None else "N/A",
+                help="Spread dólar futuro a 90 días. Horizonte más relevante para decisiones de campaña."
+            )
+        with col_r3:
+            exp_dev = ultimo_arg.get("expectativa_devaluacion", None)
+            if exp_dev is not None:
+                if exp_dev > 15:
+                    label_dev = "🔴 Alta"
+                    desc_dev  = "El mercado espera devaluación fuerte → retener puede ser conveniente"
+                elif exp_dev > 8:
+                    label_dev = "🟡 Moderada"
+                    desc_dev  = "Devaluación moderada esperada → evaluar caso a caso"
+                else:
+                    label_dev = "🟢 Baja"
+                    desc_dev  = "Mercado estable → el precio en ARS no debería subir por TC"
+                st.metric(
+                    "Presión cambiaria",
+                    label_dev,
+                    help=desc_dev
+                )
+
+    # ── Métricas de retención ─────────────────────────────────────────────────
+    if tiene_retencion and ultimo_arg is not None:
+        with col_r4:
+            idx_ret = ultimo_arg.get("indice_retencion", None)
+            senal_ret = ultimo_arg.get("senal_retencion", "N/A")
+            emojis_ret = {"ALTA": "🔴", "NORMAL": "🟡", "BAJA": "🟢"}
+            st.metric(
+                "Retención de cosecha",
+                f"{emojis_ret.get(senal_ret, '')} {senal_ret}",
+                delta=f"{idx_ret:+.1f}% vs promedio" if idx_ret is not None else None,
+                help="Basado en liquidaciones CIARA-CEC. "
+                     "Retención ALTA = productores esperando suba o devaluación."
+            )
+
+    # ── Gráficos ──────────────────────────────────────────────────────────────
+    col_g1, col_g2 = st.columns(2)
+
+    # Gráfico 1: Curva de devaluación esperada histórica
+    if tiene_rofex:
+        with col_g1:
+            st.markdown("**Expectativa de devaluación (curva ROFEX)**")
+            cols_dev = [c for c in ["spread_devaluacion_30d", "spread_devaluacion_60d",
+                                     "spread_devaluacion_90d"] if c in df.columns]
+            if cols_dev:
+                df_dev = df[df["fecha"] >= pd.Timestamp(fecha_desde)][
+                    ["fecha"] + cols_dev
+                ].dropna(subset=cols_dev[:1])
+
+                fig_dev = go.Figure()
+                colores_dev = {"spread_devaluacion_30d": "#e74c3c",
+                               "spread_devaluacion_60d": "#e67e22",
+                               "spread_devaluacion_90d": "#f39c12"}
+                nombres_dev = {"spread_devaluacion_30d": "30 días",
+                               "spread_devaluacion_60d": "60 días",
+                               "spread_devaluacion_90d": "90 días"}
+                for col in cols_dev:
+                    fig_dev.add_trace(go.Scatter(
+                        x=df_dev["fecha"],
+                        y=df_dev[col],
+                        mode="lines",
+                        name=nombres_dev.get(col, col),
+                        line=dict(color=colores_dev.get(col, "#999"), width=1.5),
+                        hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Devaluación esperada: %{y:.1f}%<extra></extra>",
+                    ))
+
+                fig_dev.add_hline(y=10, line_dash="dot", line_color="gray",
+                                   annotation_text="Umbral alto (10%)")
+                fig_dev.update_layout(
+                    height=240,
+                    margin=dict(l=0, r=0, t=10, b=0),
+                    yaxis_title="% devaluación esperada",
+                    plot_bgcolor="white", paper_bgcolor="white",
+                    xaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
+                    yaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
+                    legend=dict(orientation="h", y=1.1),
+                )
+                st.plotly_chart(fig_dev, use_container_width=True)
+
+    # Gráfico 2: Índice de retención de cosecha
+    if tiene_retencion:
+        with col_g2:
+            st.markdown("**Liquidaciones semanales (CIARA-CEC)**")
+            cols_ret = [c for c in ["liquidacion_semanal_musd", "liquidacion_ma4"]
+                        if c in df.columns]
+            if cols_ret:
+                df_ret = df[df["fecha"] >= pd.Timestamp(fecha_desde)][
+                    ["fecha"] + cols_ret
+                ].dropna(subset=cols_ret[:1])
+
+                fig_ret = go.Figure()
+
+                if "liquidacion_semanal_musd" in df_ret.columns:
+                    fig_ret.add_trace(go.Bar(
+                        x=df_ret["fecha"],
+                        y=df_ret["liquidacion_semanal_musd"],
+                        name="Liquidación semanal",
+                        marker_color="#3498db",
+                        opacity=0.6,
+                        hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Liquidación: $%{y:.0f}M USD<extra></extra>",
+                    ))
+
+                if "liquidacion_ma4" in df_ret.columns:
+                    fig_ret.add_trace(go.Scatter(
+                        x=df_ret["fecha"],
+                        y=df_ret["liquidacion_ma4"],
+                        mode="lines",
+                        name="Media 4 semanas",
+                        line=dict(color="#e74c3c", width=2),
+                        hovertemplate="<b>%{x|%d/%m/%Y}</b><br>MA4: $%{y:.0f}M USD<extra></extra>",
+                    ))
+
+                fig_ret.update_layout(
+                    height=240,
+                    margin=dict(l=0, r=0, t=10, b=0),
+                    yaxis_title="Millones USD",
+                    plot_bgcolor="white", paper_bgcolor="white",
+                    xaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
+                    yaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
+                    legend=dict(orientation="h", y=1.1),
+                    barmode="overlay",
+                )
+                st.plotly_chart(fig_ret, use_container_width=True)
+
+    # ── Señal combinada Argentina ─────────────────────────────────────────────
+    if tiene_rofex or tiene_retencion:
+        st.markdown("#### Señal combinada: precio + contexto argentino")
+
+        if ultimo_arg is not None:
+            senal_precio = ultimo_arg.get(f"senal_{cultivo}", "NEUTRAL")
+            exp_dev_val  = ultimo_arg.get("expectativa_devaluacion", 5)
+            ret_val      = ultimo_arg.get("senal_retencion", "NORMAL")
+
+            # Lógica de señal combinada
+            # Si hay expectativa de devaluación ALTA + retención ALTA:
+            #   → puede convenir esperar (el precio en ARS va a subir por TC)
+            # Si señal de precio es VENDER y devaluación es BAJA:
+            #   → confirma: vender ahora en USD es la mejor opción
+            if senal_precio == "VENDER" and (exp_dev_val or 0) < 10:
+                senal_comb  = "✅ VENDER AHORA"
+                color_comb  = "verde"
+                texto_comb  = (
+                    f"El precio de {NOMBRE_CULTIVO} está históricamente alto (P{percentil_actual:.0f}°) "
+                    f"y la expectativa de devaluación es baja ({exp_dev_val:.1f}%). "
+                    "No hay incentivo cambiario para retener. **Momento óptimo para vender.**"
+                )
+            elif senal_precio in ["ESPERAR", "NEUTRAL"] and (exp_dev_val or 0) > 15 and ret_val == "ALTA":
+                senal_comb  = "⏳ RETENER ESTRATÉGICO"
+                color_comb  = "amarillo"
+                texto_comb  = (
+                    f"El mercado espera una devaluación del {exp_dev_val:.1f}% en 90 días "
+                    "y hay alta retención general. El precio en ARS podría subir por efecto cambiario. "
+                    "Evaluar retener si la capacidad de almacenaje lo permite."
+                )
+            elif senal_precio == "VENDER" and (exp_dev_val or 0) > 15:
+                senal_comb  = "⚠️ DECISIÓN MIXTA"
+                color_comb  = "amarillo"
+                texto_comb  = (
+                    f"El precio en USD está alto (P{percentil_actual:.0f}°) pero el mercado "
+                    f"espera devaluación del {exp_dev_val:.1f}%. Considerar vender parcialmente "
+                    "para capturar el buen precio en USD y retener una parte para beneficiarse del TC."
+                )
+            else:
+                senal_comb  = "🔍 MONITOREAR"
+                color_comb  = "amarillo"
+                texto_comb  = "No hay señal clara. Revisar en los próximos días."
+
+            bg_colors = {
+                "verde":    "#d4edda",
+                "amarillo": "#fff3cd",
+                "rojo":     "#f8d7da",
+            }
+            border_colors = {
+                "verde":    "#28a745",
+                "amarillo": "#ffc107",
+                "rojo":     "#dc3545",
+            }
+            st.markdown(
+                f"""
+                <div style="background:{bg_colors[color_comb]};
+                     border-left:4px solid {border_colors[color_comb]};
+                     padding:1rem 1.25rem; border-radius:6px; margin-top:0.5rem;">
+                  <strong style="font-size:15px;">{senal_comb}</strong><br>
+                  <span style="font-size:13px;">{texto_comb}</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECCIÓN: ESTRATEGIA ADAPTATIVA POR HORIZONTE
+# Pegar en dashboard.py antes del footer
+# ─────────────────────────────────────────────────────────────────────────────
+
+st.markdown("---")
+st.markdown("### ⏱️ ¿Cuándo conviene vender según tu horizonte?")
+st.caption("Seleccioná cuántos días tenés disponibles para vender y el sistema recomienda la estrategia óptima")
+
+col_hz1, col_hz2 = st.columns([2, 1])
+
+with col_hz1:
+    horizonte = st.slider(
+        "Días disponibles para vender",
+        min_value=7,
+        max_value=180,
+        value=60,
+        step=7,
+        format="%d días",
+    )
+
+with col_hz2:
+    toneladas_hz = st.number_input(
+        "Toneladas a vender",
+        min_value=100,
+        max_value=100000,
+        value=500,
+        step=100,
+    )
+
+# Evaluar estrategias para el horizonte seleccionado
+fecha_corte_hz = pd.Timestamp.today() - pd.DateOffset(months=18)
+df_hz = df[(df["fecha"] >= fecha_corte_hz) & (df["fecha"] <= pd.Timestamp.today())]
+
+res = evaluar_estrategias_en_horizonte(
+    df_hz,
+    cultivo,
+    horizonte_dias=horizonte,
+    umbral_percentil=umbral_vender,
+)
+
+if res:
+    # ── Métricas ──────────────────────────────────────────────────────────
+    mh1, mh2, mh3, mh4 = st.columns(4)
+    with mh1:
+        st.metric(
+            "Estrategia recomendada",
+            res["ganador"],
+            help="Basado en performance histórica en ventanas similares"
+        )
+    with mh2:
+        st.metric(
+            "Precio esperado PrecioJusto",
+            f"${res['precio_pj']:,.0f}/tn",
+        )
+    with mh3:
+        st.metric(
+            "Precio esperado Suba +5%",
+            f"${res['precio_suba']:,.0f}/tn",
+        )
+    with mh4:
+        diferencia_total = (res["precio_pj"] - res["precio_suba"]) * toneladas_hz
+        st.metric(
+            "Diferencia total",
+            f"${abs(diferencia_total):,.0f} USD",
+            delta=f"{'PrecioJusto' if diferencia_total > 0 else 'Suba +5%'} gana",
+        )
+
+    # ── Señal de recomendación ────────────────────────────────────────────
+    color_hz = "verde" if res["ganador"] == "PrecioJusto" else "amarillo"
+    bg_hz    = {"verde": "#d4edda", "amarillo": "#fff3cd"}
+    borde_hz = {"verde": "#28a745", "amarillo": "#ffc107"}
+    emoji_hz = "🤖" if res["ganador"] == "PrecioJusto" else "📈"
+
+    advertencia_sin_senal = ""
+    if res["pct_sin_senal_pj"] > 15:
+        advertencia_sin_senal = (
+            f'<br><span style="font-size:12px;color:#856404;">'
+            f'⚠️ En el {res["pct_sin_senal_pj"]:.0f}% de las ventanas históricas '
+            f'PrecioJusto no emitió señal a tiempo y se vendió al vencimiento.</span>'
+        )
+
+    st.markdown(
+        f"""
+        <div style="background:{bg_hz[color_hz]};
+             border-left:4px solid {borde_hz[color_hz]};
+             padding:1rem 1.25rem; border-radius:6px; margin-top:0.5rem;">
+          <strong>{emoji_hz} En un horizonte de {horizonte} días ({res["contexto"]}),
+          la estrategia recomendada es {res["ganador"]}</strong>
+          con una ventaja histórica de ${res["ventaja_usd"]:.0f}/tn (+{res["ventaja_pct"]:.1f}%).<br>
+          <span style="font-size:13px;">{res["explicacion"]}</span>
+          {advertencia_sin_senal}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # ── Gráfico: curva de performance por horizonte ───────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("**Performance histórica de cada estrategia según horizonte disponible**")
+    st.caption("Precio promedio obtenido simulando cada estrategia en ventanas históricas del mismo tamaño")
+
+    fecha_corte_hz = pd.Timestamp.today() - pd.DateOffset(months=18)
+df_hz = df[(df["fecha"] >= fecha_corte_hz) & (df["fecha"] <= pd.Timestamp.today())]
+
+with st.spinner("Calculando curva de horizontes..."):
+    df_curva = generar_curva_horizontes(
+        df_hz,
+        cultivo,
+        umbral_percentil=umbral_vender,
+    )
+
+    if not df_curva.empty:
+        fig_hz = go.Figure()
+
+        fig_hz.add_trace(go.Scatter(
+            x=df_curva["horizonte"],
+            y=df_curva["PrecioJusto"],
+            mode="lines+markers",
+            name="PrecioJusto",
+            line=dict(color="#28a745", width=2),
+            marker=dict(size=6),
+            hovertemplate="<b>%{x} días</b><br>PrecioJusto: $%{y:,.0f}/tn<extra></extra>",
+        ))
+
+        fig_hz.add_trace(go.Scatter(
+            x=df_curva["horizonte"],
+            y=df_curva["Suba +5%"],
+            mode="lines+markers",
+            name="Suba +5%",
+            line=dict(color="#e67e22", width=2, dash="dash"),
+            marker=dict(size=6),
+            hovertemplate="<b>%{x} días</b><br>Suba +5%%: $%{y:,.0f}/tn<extra></extra>",
+        ))
+
+        # Marcar el horizonte seleccionado
+        fig_hz.add_shape(
+            type="line",
+            x0=horizonte, x1=horizonte,
+            y0=0, y1=1,
+            xref="x", yref="paper",
+            line=dict(color="gray", width=1, dash="dot"),
+        )
+        fig_hz.add_annotation(
+            x=horizonte, y=1, yref="paper",
+            text=f"Tu horizonte ({horizonte}d)",
+            showarrow=False,
+            yanchor="bottom",
+            font=dict(size=11, color="gray"),
+        )
+
+        fig_hz.update_layout(
+            height=280,
+            margin=dict(l=0, r=0, t=20, b=0),
+            xaxis_title="Días disponibles para vender",
+            yaxis_title="Precio promedio obtenido (USD/tn)",
+            legend=dict(orientation="h", y=1.1),
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            xaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
+            yaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
+        )
+        st.plotly_chart(fig_hz, use_container_width=True)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # FOOTER
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 st.markdown("---")
 st.caption(
