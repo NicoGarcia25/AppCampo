@@ -618,21 +618,59 @@ with col_pred_tab:
     for label, pred_val in pred_datos:
         if pred_val:
             cambio = (pred_val - precio_actual) / precio_actual * 100
-            color_delta = "#28a745" if cambio >= 0 else "#dc3545"
-            flecha = "↑" if cambio >= 0 else "↓"
-            st.markdown(
-                f"""
-                <div style="display:flex;justify-content:space-between;align-items:center;
-                     padding:10px 0;border-bottom:1px solid #eee;">
-                  <span style="color:#666;font-size:14px;">{label}</span>
-                  <span style="font-size:16px;font-weight:600;">${pred_val:,.0f}/tn</span>
-                  <span style="color:{color_delta};font-size:13px;font-weight:600;">
-                    {flecha} {cambio:+.1f}%
-                  </span>
+            # Predicciones con intervalo de confianza
+pred_datos = [
+    ("30 días", pred_30d,
+     df_futuro.iloc[29].get(col_pred_lo) if len(df_futuro) > 29 else None,
+     df_futuro.iloc[29].get(col_pred_hi) if len(df_futuro) > 29 else None),
+    ("60 días", pred_60d,
+     df_futuro.iloc[59].get(col_pred_lo) if len(df_futuro) > 59 else None,
+     df_futuro.iloc[59].get(col_pred_hi) if len(df_futuro) > 59 else None),
+    ("90 días", pred_90d,
+     df_futuro.iloc[89].get(col_pred_lo) if len(df_futuro) > 89 else None,
+     df_futuro.iloc[89].get(col_pred_hi) if len(df_futuro) > 89 else None),
+]
+
+for label, pred_val, lower, upper in pred_datos:
+    if pred_val:
+        cambio = (pred_val - precio_actual) / precio_actual * 100
+        color_delta = "#28a745" if cambio >= 0 else "#dc3545"
+        flecha = "↑" if cambio >= 0 else "↓"
+        tendencia = "alcista" if cambio >= 0 else "bajista"
+
+        # Intervalo de confianza
+        if lower and upper:
+            rango = f"${lower:,.0f} – ${upper:,.0f}/tn"
+            ancho_intervalo = (upper - lower) / pred_val * 100
+            confianza = "Alta" if ancho_intervalo < 8 else "Media" if ancho_intervalo < 15 else "Baja"
+            confianza_color = {"Alta": "#28a745", "Media": "#ffc107", "Baja": "#dc3545"}[confianza]
+        else:
+            rango = "N/A"
+            confianza = ""
+            confianza_color = "#999"
+
+        st.markdown(
+            f"""
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                 padding:10px 0;border-bottom:1px solid #eee;">
+              <span style="color:#666;font-size:14px;">{label}</span>
+              <div style="text-align:right;">
+                <div style="font-size:13px;color:#999;">
+                  Tendencia: <span style="color:{color_delta};font-weight:600;">
+                  {flecha} {tendencia} ({cambio:+.1f}%)</span>
                 </div>
-                """,
-                unsafe_allow_html=True
-            )
+                <div style="font-size:12px;color:#aaa;">
+                  Rango probable: {rango}
+                </div>
+                <div style="font-size:11px;color:{confianza_color};">
+                  Confianza: {confianza}
+                </div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
 
     # Precio en ARS proyectado
     if pred_30d and tc_blue:
