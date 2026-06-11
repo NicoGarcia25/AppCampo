@@ -771,7 +771,29 @@ if cultivos_data:
 # ─────────────────────────────────────────────────────────────────────────────
 
 with st.expander("Ver historial de señales recientes"):
-    df_hist_senal = df[df["fecha"] <= hoy].dropna(subset=[col_senal, col_precio]).tail(60)
+    # Recalcular señales históricas con umbral actual
+df_hist_all = df[df["fecha"] <= hoy].dropna(subset=[col_percentil, col_precio]).copy()
+df_hist_all["senal_live"] = df_hist_all.apply(
+    lambda row: recalcular_senal_live(
+        row.get(col_percentil),
+        row.get(f"pred_{cultivo}_30d"),
+        row.get(col_precio),
+        umbral_vender,
+        umbral_esperar,
+    ),
+    axis=1,
+)
+
+# Solo primer día de cada racha — evita repetición de señales consecutivas
+df_hist_all["racha"] = (
+    df_hist_all["senal_live"] != df_hist_all["senal_live"].shift(1)
+).cumsum()
+df_hist_senal = (
+    df_hist_all
+    .drop_duplicates(subset="racha", keep="first")
+    .tail(30)
+    .rename(columns={"senal_live": col_senal})
+)
     df_hist_senal = df_hist_senal[["fecha", col_precio, col_percentil, col_senal]].copy()
     df_hist_senal.columns = ["Fecha", "Precio USD/tn", "Percentil", "Señal"]
     df_hist_senal["Fecha"] = df_hist_senal["Fecha"].dt.strftime("%d/%m/%Y")
