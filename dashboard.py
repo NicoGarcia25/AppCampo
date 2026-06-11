@@ -535,17 +535,34 @@ fig.add_annotation(
 )
 
 # Señales VENDER en el período visible
-if col_senal in df_vista.columns:
-    df_ventas = df_vista[(df_vista[col_senal] == "VENDER") & (df_vista["fecha"] <= hoy)]
-    if not df_ventas.empty:
-        fig.add_trace(go.Scatter(
-            x=df_ventas["fecha"],
-            y=df_ventas[col_precio],
-            mode="markers",
-            name="Señal VENDER",
-            marker=dict(color="#28a745", size=7, symbol="triangle-up"),
-            hovertemplate="<b>Señal VENDER</b><br>%{x|%d/%m/%Y}<br>$%{y:,.0f}/tn<extra></extra>",
-        ))
+# Recalcular señales históricas en tiempo real según el umbral actual del slider
+df_vista_hist = df_vista[df_vista["fecha"] <= hoy].copy()
+
+if col_percentil in df_vista_hist.columns and col_pred + "_30d" in df_vista_hist.columns:
+    df_vista_hist["senal_live"] = df_vista_hist.apply(
+        lambda row: recalcular_senal_live(
+            row.get(col_percentil),
+            row.get(f"pred_{cultivo}_30d"),
+            row.get(col_precio),
+            umbral_vender,
+            umbral_esperar,
+        ),
+        axis=1,
+    )
+    df_ventas = df_vista_hist[df_vista_hist["senal_live"] == "VENDER"]
+else:
+    df_ventas = df_vista_hist[df_vista_hist[col_senal] == "VENDER"] \
+                if col_senal in df_vista_hist.columns else pd.DataFrame()
+
+if not df_ventas.empty:
+    fig.add_trace(go.Scatter(
+        x=df_ventas["fecha"],
+        y=df_ventas[col_precio],
+        mode="markers",
+        name="Señal VENDER",
+        marker=dict(color="#28a745", size=7, symbol="triangle-up"),
+        hovertemplate="<b>Señal VENDER</b><br>%{x|%d/%m/%Y}<br>$%{y:,.0f}/tn<extra></extra>",
+    ))
 
 fig.update_layout(
     height=400,
