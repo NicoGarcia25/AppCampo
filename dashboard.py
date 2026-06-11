@@ -771,7 +771,7 @@ if cultivos_data:
 # ─────────────────────────────────────────────────────────────────────────────
 
 with st.expander("Ver historial de señales recientes"):
-    # Recalcular señales históricas con umbral actual
+    # Recalcular señales con umbral actual del slider
     df_hist_all = df[df["fecha"] <= hoy].dropna(subset=[col_percentil, col_precio]).copy()
     df_hist_all["senal_live"] = df_hist_all.apply(
         lambda row: recalcular_senal_live(
@@ -783,32 +783,27 @@ with st.expander("Ver historial de señales recientes"):
         ),
         axis=1,
     )
-    
-    # Solo primer día de cada racha — evita repetición de señales consecutivas
-    df_hist_all["racha"] = (
-        df_hist_all["senal_live"] != df_hist_all["senal_live"].shift(1)
-    ).cumsum()
-    df_hist_senal = (
-        df_hist_all
-        .drop_duplicates(subset="racha", keep="first")
-        .tail(30)
-        .rename(columns={"senal_live": col_senal})
-    )
-    df_hist_senal = df_hist_senal[["fecha", col_precio, col_percentil, col_senal]].copy()
-    df_hist_senal = df_hist_senal[["fecha", col_precio, col_percentil, col_senal]].copy()
-    df_hist_senal.columns = ["Fecha", "Precio USD/tn", "Percentil", "Señal"]
-    df_hist_senal["Fecha"] = df_hist_senal["Fecha"].dt.strftime("%d/%m/%Y")
-    df_hist_senal["Precio USD/tn"] = df_hist_senal["Precio USD/tn"].map("${:,.0f}".format)
-    df_hist_senal["Percentil"] = df_hist_senal["Percentil"].map("{:.0f}°".format)
 
-    styled_hist = df_hist_senal.style.map(
-        lambda v: {"VENDER": "background-color:#d4edda;color:#155724",
-                   "NEUTRAL": "background-color:#fff3cd;color:#856404",
-                   "ESPERAR": "background-color:#f8d7da;color:#721c24"}.get(v, ""),
+    # Solo primer día de cada racha — evita repetir la misma señal días consecutivos
+    df_hist_all["es_nuevo"] = df_hist_all["senal_live"] != df_hist_all["senal_live"].shift(1)
+    df_hist_cambios = df_hist_all[df_hist_all["es_nuevo"]].tail(30).copy()
+
+    # Armar tabla de display
+    df_display = df_hist_cambios[["fecha", col_precio, col_percentil, "senal_live"]].copy()
+    df_display.columns = ["Fecha", "Precio USD/tn", "Percentil", "Señal"]
+    df_display["Fecha"]          = df_display["Fecha"].dt.strftime("%d/%m/%Y")
+    df_display["Precio USD/tn"]  = df_display["Precio USD/tn"].map("${:,.0f}".format)
+    df_display["Percentil"]      = df_display["Percentil"].map("{:.0f}°".format)
+
+    styled_hist = df_display.style.map(
+        lambda v: {
+            "VENDER":   "background-color:#d4edda;color:#155724",
+            "NEUTRAL":  "background-color:#fff3cd;color:#856404",
+            "ESPERAR":  "background-color:#f8d7da;color:#721c24",
+        }.get(v, ""),
         subset=["Señal"]
     )
     st.dataframe(styled_hist, use_container_width=True, hide_index=True, height=300)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SECCIÓN: ESTRATEGIA ADAPTATIVA POR HORIZONTE
