@@ -681,10 +681,6 @@ for dias, pred_val in [(30, pred_30d), (60, pred_60d), (90, pred_90d)]:
         pred_disponible = pred_val
         dias_disponible = dias
 
-if pred_disponible and tc_blue:
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.info(f"**Precio proyectado en ARS ({dias_disponible}d):** ${pred_disponible * tc_blue:,.0f} / tn")
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # BACKTEST
