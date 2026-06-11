@@ -795,6 +795,7 @@ with st.expander("Ver historial de señales recientes"):
         .rename(columns={"senal_live": col_senal})
     )
     df_hist_senal = df_hist_senal[["fecha", col_precio, col_percentil, col_senal]].copy()
+    df_hist_senal = df_hist_senal[["fecha", col_precio, col_percentil, col_senal]].copy()
     df_hist_senal.columns = ["Fecha", "Precio USD/tn", "Percentil", "Señal"]
     df_hist_senal["Fecha"] = df_hist_senal["Fecha"].dt.strftime("%d/%m/%Y")
     df_hist_senal["Precio USD/tn"] = df_hist_senal["Precio USD/tn"].map("${:,.0f}".format)
