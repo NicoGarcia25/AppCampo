@@ -672,10 +672,18 @@ for label, pred_val, lower, upper in pred_datos:
         )
 
 
-    # Precio en ARS proyectado
-    if pred_30d and tc_blue:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.info(f"**Precio proyectado en ARS (30d):** ${pred_30d * tc_blue:,.0f} / tn")
+    # Precio en ARS proyectado — usa la última predicción disponible
+pred_disponible = None
+dias_disponible = None
+
+for dias, pred_val in [(30, pred_30d), (60, pred_60d), (90, pred_90d)]:
+    if pred_val and not pd.isna(pred_val):
+        pred_disponible = pred_val
+        dias_disponible = dias
+
+if pred_disponible and tc_blue:
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.info(f"**Precio proyectado en ARS ({dias_disponible}d):** ${pred_disponible * tc_blue:,.0f} / tn")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
