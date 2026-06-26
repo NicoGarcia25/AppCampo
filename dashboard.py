@@ -279,7 +279,7 @@ if df is None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("### 🌾 PrecioJusto Campo")
+    st.markdown("### Agrosignal")
     st.markdown("---")
 
     # Selector de cultivo
