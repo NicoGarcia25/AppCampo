@@ -188,8 +188,7 @@ def generar_curva_horizontes(
 # ─────────────────────────────────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="PrecioJusto Campo",
-    page_icon="🌾",
+    page_title="Agrosignal",
     layout="wide",
     initial_sidebar_state="expanded",
 )
