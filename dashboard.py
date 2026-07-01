@@ -193,37 +193,221 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# CSS personalizado para look profesional
+# CSS — estética AgroSignal (dark navy)
 st.markdown("""
 <style>
-    .main { padding-top: 1rem; }
-    .block-container { padding-top: 1.5rem; max-width: 1200px; }
-
-    /* Tarjetas de métricas */
-    [data-testid="metric-container"] {
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 10px;
-        padding: 1rem;
+    /* ── Fondo global ───────────────────────────────────────── */
+    .stApp {
+        background-color: #0a1628 !important;
+    }
+    .main { padding-top: 0.5rem; }
+    .block-container {
+        padding-top: 1rem;
+        max-width: 1200px;
+        background-color: #0a1628;
     }
 
-    /* Señal badge */
-    .badge-verde  { background:#15ab39; color:#ffffff; padding:6px 16px; border-radius:20px; font-weight:600; font-size:15px; }
-    .badge-amarillo { background:#879600; color:#ffffff; padding:6px 16px; border-radius:20px; font-weight:600; font-size:15px; }
-    .badge-rojo   { background:#b5282a; color:#ffffff; padding:6px 16px; border-radius:20px; font-weight:600; font-size:15px; }
+    /* ── Tipografía ──────────────────────────────────────────── */
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        color: #e2e8f0 !important;
+    }
+    h1 {
+        font-size: 1.5rem !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
+        letter-spacing: -0.02em !important;
+    }
+    h2 { font-size: 1.1rem !important; font-weight: 600 !important; color: #ffffff !important; }
+    h3 { font-size: 0.95rem !important; font-weight: 500 !important; color: #94a3b8 !important; }
+    p, div { color: #cbd5e1; }
 
-    /* Señal box */
-    .signal-verde   { background:#000000; border-left:5px solid #28a745; padding:1rem 1.25rem; border-radius:6px; margin:1rem 0; }
-    .signal-amarillo{ background:#000000; border-left:5px solid #ffc107; padding:1rem 1.25rem; border-radius:6px; margin:1rem 0; }
-    .signal-rojo    { background:#000000; border-left:5px solid #dc3545; padding:1rem 1.25rem; border-radius:6px; margin:1rem 0; }
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    [data-testid="stSidebar"] {
+        background: #0d1f3c !important;
+        border-right: 1px solid #1e3a5f !important;
+    }
+    [data-testid="stSidebar"] * { color: #94a3b8 !important; }
+    [data-testid="stSidebar"] h3 { color: #ffffff !important; font-size: 0.8rem !important; text-transform: uppercase; letter-spacing: 0.1em; }
+    [data-testid="stSidebar"] label { font-size: 0.72rem !important; color: #64748b !important; text-transform: uppercase; letter-spacing: 0.06em; }
+    [data-testid="stSidebar"] hr { border-color: #1e3a5f !important; }
 
-    /* Backtest card */
-    .bt-card { background:#f0f4ff; border:1px solid #d0d9f5; border-radius:10px; padding:1rem 1.25rem; }
-    .bt-number { font-size:28px; font-weight:700; color:#2d4699; }
+    /* ── Métricas ────────────────────────────────────────────── */
+    [data-testid="metric-container"] {
+        background: #0f2444 !important;
+        border: 1px solid #1e3a5f !important;
+        border-radius: 8px !important;
+        padding: 1rem 1.1rem !important;
+    }
+    [data-testid="metric-container"] > div:first-child {
+        font-size: 0.68rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.08em !important;
+        color: #64748b !important;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 1.8rem !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
+        letter-spacing: -0.02em !important;
+    }
+    [data-testid="stMetricDelta"] svg { display: none; }
 
-    h1 { font-size: 1.6rem !important; }
-    h2 { font-size: 1.2rem !important; }
-    h3 { font-size: 1rem !important; }
+    /* ── Tabs ────────────────────────────────────────────────── */
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        background: #0d1f3c !important;
+        border-radius: 8px !important;
+        padding: 4px !important;
+        gap: 2px !important;
+        border: 1px solid #1e3a5f !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab"] {
+        background: transparent !important;
+        color: #64748b !important;
+        border-radius: 6px !important;
+        font-size: 0.8rem !important;
+        font-weight: 500 !important;
+        padding: 6px 16px !important;
+    }
+    [data-testid="stTabs"] [aria-selected="true"] {
+        background: #1e3a5f !important;
+        color: #4ade80 !important;
+    }
+
+    /* ── Gráficos Plotly ─────────────────────────────────────── */
+    .js-plotly-plot .plotly .bg { fill: #0f2444 !important; }
+
+    /* ── Selectbox / inputs ──────────────────────────────────── */
+    [data-testid="stSelectbox"] > div > div,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stTextInput"] input {
+        background: #0f2444 !important;
+        border: 1px solid #1e3a5f !important;
+        color: #e2e8f0 !important;
+        border-radius: 6px !important;
+    }
+
+    /* ── Sliders ─────────────────────────────────────────────── */
+    [data-testid="stSlider"] > div > div > div {
+        background: #1e3a5f !important;
+    }
+    [data-testid="stSlider"] > div > div > div > div {
+        background: #4ade80 !important;
+        border: none !important;
+        border-radius: 2px !important;
+        width: 12px !important;
+        height: 12px !important;
+    }
+
+    /* ── Dataframes / tablas ─────────────────────────────────── */
+    [data-testid="stDataFrame"] {
+        border: 1px solid #1e3a5f !important;
+        border-radius: 8px !important;
+        background: #0f2444 !important;
+    }
+    .dvn-scroller { background: #0f2444 !important; }
+
+    /* ── Expander ────────────────────────────────────────────── */
+    [data-testid="stExpander"] {
+        background: #0f2444 !important;
+        border: 1px solid #1e3a5f !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stExpander"] summary { color: #94a3b8 !important; }
+
+    /* ── Info / warning ──────────────────────────────────────── */
+    [data-testid="stInfo"] {
+        background: #0f2444 !important;
+        border: 1px solid #1e3a5f !important;
+        border-left: 3px solid #4ade80 !important;
+        color: #94a3b8 !important;
+        border-radius: 0 6px 6px 0 !important;
+    }
+
+    /* ── Separadores ─────────────────────────────────────────── */
+    hr { border-color: #1e3a5f !important; }
+
+    /* ── Caption / texto secundario ──────────────────────────── */
+    [data-testid="stCaptionContainer"] { color: #475569 !important; }
+
+    /* ── Badge señal ─────────────────────────────────────────── */
+    .badge-verde {
+        background: transparent;
+        color: #4ade80;
+        padding: 5px 16px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border: 1.5px solid #4ade80;
+    }
+    .badge-amarillo {
+        background: transparent;
+        color: #fbbf24;
+        padding: 5px 16px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border: 1.5px solid #fbbf24;
+    }
+    .badge-rojo {
+        background: transparent;
+        color: #f87171;
+        padding: 5px 16px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border: 1.5px solid #f87171;
+    }
+
+    /* ── Signal box ──────────────────────────────────────────── */
+    .signal-verde {
+        background: #0a2e1a;
+        border-left: 3px solid #4ade80;
+        padding: 0.9rem 1.2rem;
+        border-radius: 0 6px 6px 0;
+        margin: 0.75rem 0;
+    }
+    .signal-amarillo {
+        background: #2a1f00;
+        border-left: 3px solid #fbbf24;
+        padding: 0.9rem 1.2rem;
+        border-radius: 0 6px 6px 0;
+        margin: 0.75rem 0;
+    }
+    .signal-rojo {
+        background: #2a0a0a;
+        border-left: 3px solid #f87171;
+        padding: 0.9rem 1.2rem;
+        border-radius: 0 6px 6px 0;
+        margin: 0.75rem 0;
+    }
+
+    /* ── Backtest card ───────────────────────────────────────── */
+    .bt-card {
+        background: #0f2444;
+        border: 1px solid #1e3a5f;
+        border-radius: 8px;
+        padding: 1rem 1.2rem;
+        border-top: 2px solid #4ade80;
+    }
+    .bt-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #4ade80;
+        letter-spacing: -0.03em;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #0a1628; }
+    ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 2px; }
 </style>
 """, unsafe_allow_html=True)
 
