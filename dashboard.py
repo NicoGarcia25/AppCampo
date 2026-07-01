@@ -303,21 +303,11 @@ st.markdown("""
       height: 4px !important;
       border-radius: 2px !important;
     }
-    /* Elimina el halo rojo del thumb */
-  [data-testid="stSlider"] [role="slider"]{
-    background: #4ade80 !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-}
-
-/* También al recibir foco */
-  [data-testid="stSlider"] [role="slider"]:focus,
-  [data-testid="stSlider"] [role="slider"]:focus-visible,
-  [data-testid="stSlider"] [role="slider"]:active{
-    box-shadow: none !important;
-    outline: none !important;
-}
+      /* Barra llena */
+    [data-testid="stSlider"] > div > div > div > div:nth-child(2){
+     background: #4ade80 !important;
+     border: none !important;
+    }
  
     /* ── Dataframes / tablas ─────────────────────────────────── */
     [data-testid="stDataFrame"] {
