@@ -288,18 +288,22 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* ── Sliders ─────────────────────────────────────────────── */
-    [data-testid="stSlider"] > div > div > div {
-        background: #1e3a5f !important;
+    /* Track completo del slider */
+    [data-testid="stSlider"] [role="slider"] {
+     background: #4ade80 !important;
+     border: none !important;
+     width: 14px !important;
+     height: 14px !important;
+     border-radius: 3px !important;
+     box-shadow: none !important;
+        }
+     /* Barra de fondo */
+    [data-testid="stSlider"] > div > div > div > div:first-child {
+      background: #1e3a5f !important;
+      height: 4px !important;
+      border-radius: 2px !important;
     }
-    [data-testid="stSlider"] > div > div > div > div {
-        background: #4ade80 !important;
-        border: none !important;
-        border-radius: 2px !important;
-        width: 12px !important;
-        height: 12px !important;
-    }
-
+ 
     /* ── Dataframes / tablas ─────────────────────────────────── */
     [data-testid="stDataFrame"] {
         border: 1px solid #1e3a5f !important;
