@@ -754,10 +754,11 @@ fig.update_layout(
     yaxis_title="USD / tonelada",
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     hovermode="x unified",
-    plot_bgcolor="white",
-    paper_bgcolor="white",
-    xaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
-    yaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
+    plot_bgcolor="#0f2444",
+    paper_bgcolor="#0f2444",
+    font=dict(color="#94a3b8"),
+    xaxis=dict(showgrid=True, gridcolor="#1e3a5f", color="#64748b"),
+    yaxis=dict(showgrid=True, gridcolor="#1e3a5f", color="#64748b"),
 )
 st.plotly_chart(fig, use_container_width=True)
 
