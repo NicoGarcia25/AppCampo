@@ -290,7 +290,7 @@ st.markdown("""
 
     /* Track completo del slider */
     [data-testid="stSlider"] [role="slider"] {
-     background: #4ade80 !important;
+     background: #14b8a6 !important;  #COLOR SLIDER
      border: none !important;
      width: 14px !important;
      height: 14px !important;
@@ -299,13 +299,13 @@ st.markdown("""
         }
      /* Barra de fondo */
     [data-testid="stSlider"] > div > div > div > div:first-child {
-      background: #1e3a5f !important;
+      background: #14b8a6 !important; #COLOR SLIDER
       height: 4px !important;
       border-radius: 2px !important;
     }
       /* Barra llena */
     [data-testid="stSlider"] > div > div > div > div:nth-child(2){
-     background: #4ade80 !important;
+     background: #14b8a6 !important;  #COLOR SLIDER
      border: none !important;
     }
  
